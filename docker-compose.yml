@@ -12,7 +12,15 @@ services:
     ports:
       - 3000:3000
     environment:
+      PORT: 3000
       ATC_BASE_URL: http://mock:4000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks:
+      default:
+        aliases:
+          - api
+
   mock:
     image: atc-challenge:dev
     command: node /usr/src/app/mock/server.js
@@ -24,3 +32,23 @@ services:
       EVENT_INTERVAL_SECONDS: 10
       REQUESTS_PER_MINUTE: 60
       EVENT_PUBLISHER_URL: http://api:3000/events
+      PORT: 4000
+    networks:
+      default:
+        aliases:
+          - mock
+
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    environment:
+      REDIS_DISABLE_COMMANDS: FLUSHDB,FLUSHALL
+    networks:
+      default:
+        aliases:
+          - redis
+
+networks:
+  default:
+    driver: bridge
