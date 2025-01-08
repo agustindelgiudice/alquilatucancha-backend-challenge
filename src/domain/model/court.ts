@@ -1,4 +1,5 @@
 export interface Court {
   id: number;
-  // TODO: fill
+  name: string;
+  type: string;
 }

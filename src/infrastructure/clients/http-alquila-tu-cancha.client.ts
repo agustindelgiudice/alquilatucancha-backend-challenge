@@ -35,20 +35,17 @@ export class HTTPAlquilaTuCanchaClient implements AlquilaTuCanchaClient {
     }
 
     try {
-      const validHeaders = AxiosHeaders.from({
-        'Content-Type': 'application/json',
-      });
-
-      this.logger.log(`Fetching clubs from API for placeId: ${placeId}`);
       const response: AxiosResponse<Club[]> = await firstValueFrom(
         this.httpService.get<Club[]>('/clubs', {
           baseURL: this.base_url,
           params: { placeId },
-          headers: validHeaders, // Headers válidos
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }),
       );
 
-      await this.setCache(cacheKey, response.data, 3600); // Cache por 1 hora
+      await this.setCache(cacheKey, response.data, 3600);
       return response.data;
     } catch (error) {
       this.handleHttpError('clubs', placeId, error);
@@ -66,81 +63,86 @@ export class HTTPAlquilaTuCanchaClient implements AlquilaTuCanchaClient {
     }
 
     try {
-      const validHeaders = AxiosHeaders.from({
-        'Content-Type': 'application/json',
-      });
-
-      this.logger.log(`Fetching courts from API for clubId: ${clubId}`);
       const response: AxiosResponse<Court[]> = await firstValueFrom(
         this.httpService.get<Court[]>(`/clubs/${clubId}/courts`, {
           baseURL: this.base_url,
-          headers: validHeaders, // Headers válidos
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }),
       );
 
-      await this.setCache(cacheKey, response.data, 3600); // Cache por 1 hora
+      await this.setCache(cacheKey, response.data, 3600);
       return response.data;
     } catch (error) {
-      this.handleHttpError('courts', clubId, error);
+      this.handleHttpError('courts', clubId.toString(), error);
       return [];
     }
   }
 
   async getAvailableSlots(clubId: number, courtId: number, date: Date): Promise<Slot[]> {
-    const formattedDate = moment(date).format('YYYY-MM-DD');
+    const formattedDate = moment(date).format('YYYY-MM-DD'); // Asegura que esto sea consistente
     const cacheKey = `slots:${clubId}:${courtId}:${formattedDate}`;
     const cachedSlots = await this.getCache<Slot[]>(cacheKey);
-
+  
     if (cachedSlots) {
       this.logger.log(`Cache hit for slots with key: ${cacheKey}`);
       return cachedSlots;
     }
-
+  
     try {
-      const validHeaders = AxiosHeaders.from({
-        'Content-Type': 'application/json',
-      });
-
-      this.logger.log(`Fetching slots from API for key: ${cacheKey}`);
       const response: AxiosResponse<Slot[]> = await firstValueFrom(
         this.httpService.get<Slot[]>(`/clubs/${clubId}/courts/${courtId}/slots`, {
           baseURL: this.base_url,
           params: { date: formattedDate },
-          headers: validHeaders, // Headers válidos
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }),
       );
-
-      await this.setCache(cacheKey, response.data, 3600); // Cache por 1 hora
+  
+      await this.setCache(cacheKey, response.data, 3600);
       return response.data;
     } catch (error) {
       this.handleHttpError('slots', `${clubId}:${courtId}:${formattedDate}`, error);
       return [];
     }
   }
+  
 
   private async getCache<T>(key: string): Promise<T | null> {
     try {
-      const value = await this.redis.get(key);
-      return value ? JSON.parse(value) : null;
-    } catch (error) {
-      this.logger.error(`Error fetching from Redis for key ${key}: ${error}`);
-      return null;
-    }
-  }
+        this.logger.log(`Fetching from cache: ${key}`);
+        const start = Date.now(); // Marca de inicio del tiempo
 
-  private async setCache<T>(key: string, value: T, ttl: number): Promise<void> {
+        const value = await this.redis.get(key);
+
+        const duration = Date.now() - start; // Calcula el tiempo transcurrido
+        this.logger.log(`Cache fetch for key "${key}" completed in ${duration}ms`);
+
+        return value ? JSON.parse(value) : null;
+    } catch (error) {
+        this.logger.error(`Error fetching cache for key ${key}: ${(error as Error).message}`);
+        return null;
+    }
+}
+
+
+  private async setCache<T>(key: string, value: T, ttl: number = 60): Promise<void> {
     try {
-      await this.redis.set(key, JSON.stringify(value), 'EX', ttl);
-      this.logger.log(`Data cached for key: ${key}`);
+        await this.redis.set(key, JSON.stringify(value), 'EX', ttl); // TTL por defecto: 60 segundos
+        this.logger.log(`Data cached for key: ${key} with TTL: ${ttl} seconds`);
     } catch (error) {
-      this.logger.error(`Error setting Redis cache for key ${key}: ${error}`);
+        this.logger.error(`Error setting cache for key ${key}: ${(error as Error).message}`);
     }
-  }
+}
 
-  private handleHttpError(context: string, identifier: string | number, error: unknown): void {
-    this.logger.error(`Error fetching ${context} for identifier ${identifier}: ${error}`);
+
+  private handleHttpError(context: string, identifier: string, error: unknown): void {
+    const errorMessage = (error as Error).message || 'Unknown error';
+    this.logger.error(`Error occurred in ${context} (${identifier}): ${errorMessage}`);
     if ('response' in (error as any)) {
-      this.logger.error(`Response data: ${(error as any).response.data}`);
+      this.logger.error(`Response data: ${(error as any).response?.data}`);
     }
   }
 }

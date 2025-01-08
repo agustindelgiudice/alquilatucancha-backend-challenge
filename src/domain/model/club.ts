@@ -1,4 +1,5 @@
 export interface Club {
   id: number;
-  // TODO: fill
+  name: string;
+  location: string;
 }
