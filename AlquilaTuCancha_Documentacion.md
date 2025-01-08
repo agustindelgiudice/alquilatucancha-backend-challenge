@@ -547,6 +547,40 @@ A continuación, se presentan los comandos utilizados para ejecutar las pruebas,
           -----------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+## **🔟 Cobertura de Pruebas**
+
+### **Descripción**
+
+    Se utilizó el comando `npx jest --coverage` para verificar la cobertura de pruebas en el proyecto. Este comando genera un reporte detallado que muestra el porcentaje de cobertura de pruebas para instrucciones, ramas lógicas, funciones y líneas de código.
+
+### **Comando ejecutado**
+
+    `npx jest --coverage`
+
+### **Resultados**
+
+    Se detectaron algunos archivos con baja cobertura, como el `AppModule`. Para solucionar esto, se agregaron pruebas adicionales en el archivo `app.module.spec.ts`, incluyendo:
+      - La inicialización del módulo.
+      - La inyección de controladores y servicios principales (como `SearchController`, `EventsController` y `GetAvailabilityHandler`).
+      - La configuración del módulo de Redis.
+
+El reporte final se generó automáticamente en el archivo `src/coverage/lcov-report/index.html`, el cual se puede abrir en un navegador para revisar los detalles.
+
+### **Cómo visualizar el reporte**
+
+    Para ver el reporte, ejecuta el siguiente comando según tu sistema operativo:
+      - **MacOS**: `open src/coverage/lcov-report/index.html`
+      - **Linux**: `xdg-open src/coverage/lcov-report/index.html`
+      - **Windows**: `start src/coverage/lcov-report/index.html`
+
+### **Conclusión**
+
+    Se logró una buena cobertura para los componentes más importantes del proyecto. Si aún hay áreas que necesitan más pruebas, estas se pueden identificar fácilmente usando el reporte generado. Esto garantiza que el código cumpla con los requisitos y estándares del desafío.
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+          -----------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 MENSAJE FINAL:
 
 `Gracias por la oportunidad de trabajar en este desafío. He intentado cumplir con todos los puntos del challenge y aplicar lo aprendido para entregar la mejor solución posible. Sin embargo, reconozco que puede haber detalles o conceptos que no estén del todo claros o que puedan ser mejorados.
