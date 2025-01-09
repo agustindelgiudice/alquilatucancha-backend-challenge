@@ -1,18 +1,23 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+require('dotenv').config(); // Carga las variables de entorno desde el archivo .env
+
 const fastify = require('fastify')({
   logger: true,
 });
 const axios = require('axios');
 const { setTimeout } = require('timers/promises');
 const data = require('./data');
-const EVENT_INTERVAL_SECONDS =
-  parseInt(process.env.EVENT_INTERVAL_SECONDS) || 10;
+
+// Carga las variables de entorno
+const EVENT_INTERVAL_SECONDS = parseInt(process.env.EVENT_INTERVAL_SECONDS) || 10;
 const REQUESTS_PER_MINUTE = parseInt(process.env.REQUESTS_PER_MINUTE) || 60;
 const EVENT_PUBLISHER_URL =
   process.env.EVENT_PUBLISHER_URL || 'http://localhost:3000/events';
+const PORT = parseInt(process.env.PORT) || 4000; // Puerto definido en el archivo .env o por defecto 4000
 
 let request_count = 0;
 
+// Middleware para manejar el límite de solicitudes por minuto
 fastify.addHook('onRequest', function (request, reply, done) {
   request_count++;
   if (request_count > REQUESTS_PER_MINUTE) {
@@ -28,6 +33,7 @@ fastify.addHook('onRequest', function (request, reply, done) {
   done();
 });
 
+// Rutas de Fastify
 fastify.get('/zones', async () => {
   return data.getZones();
 });
@@ -173,6 +179,7 @@ fastify.get(
   },
 );
 
+// Funciones para eventos
 function updateRandomClub() {
   const club = data.getRandomClub();
 
@@ -229,13 +236,11 @@ function emitRandomEvent() {
   return updateRandomClub();
 }
 
-/**
- * Run the server!
- */
+// Inicia el servidor
 const start = async () => {
   setInterval(emitRandomEvent, EVENT_INTERVAL_SECONDS * 1000);
   try {
-    await fastify.listen({ port: process.env.PORT || 4000, host: '0.0.0.0' });
+    await fastify.listen(PORT, '0.0.0.0');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

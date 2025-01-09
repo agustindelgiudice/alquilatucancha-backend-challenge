@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Logger, BadRequestException } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { UseZodGuard } from 'nestjs-zod';
 import { z } from 'nestjs-zod/z';
@@ -43,13 +43,21 @@ export type ExternalEventDTO = z.infer<typeof ExternalEventSchema>;
 
 @Controller('events')
 export class EventsController {
-  constructor(private eventBus: EventBus) {}
+  private readonly logger = new Logger(EventsController.name);
+
+  constructor(private readonly eventBus: EventBus) {}
 
   @Post()
   @UseZodGuard('body', ExternalEventSchema)
   async receiveEvent(@Body() externalEvent: ExternalEventDTO) {
-    switch (externalEvent.type) {
-      case 'booking_created':
+    try {
+      this.logger.log(`Received external event: ${JSON.stringify(externalEvent)}`);
+
+      // Usar `externalEvent` con discriminación de tipo
+      if (externalEvent.type === 'booking_created') {
+        this.logger.log(
+          `Publishing SlotBookedEvent for clubId: ${externalEvent.clubId}, courtId: ${externalEvent.courtId}`,
+        );
         this.eventBus.publish(
           new SlotBookedEvent(
             externalEvent.clubId,
@@ -57,8 +65,10 @@ export class EventsController {
             externalEvent.slot,
           ),
         );
-        break;
-      case 'booking_cancelled':
+      } else if (externalEvent.type === 'booking_cancelled') {
+        this.logger.log(
+          `Publishing SlotAvailableEvent for clubId: ${externalEvent.clubId}, courtId: ${externalEvent.courtId}`,
+        );
         this.eventBus.publish(
           new SlotAvailableEvent(
             externalEvent.clubId,
@@ -66,13 +76,19 @@ export class EventsController {
             externalEvent.slot,
           ),
         );
-        break;
-      case 'club_updated':
+      } else if (externalEvent.type === 'club_updated') {
+        this.logger.log(
+          `Publishing ClubUpdatedEvent for clubId: ${externalEvent.clubId}, fields: ${JSON.stringify(
+            externalEvent.fields,
+          )}`,
+        );
         this.eventBus.publish(
           new ClubUpdatedEvent(externalEvent.clubId, externalEvent.fields),
         );
-        break;
-      case 'court_updated':
+      } else if (externalEvent.type === 'court_updated') {
+        this.logger.log(
+          `Publishing CourtUpdatedEvent for clubId: ${externalEvent.clubId}, courtId: ${externalEvent.courtId}`,
+        );
         this.eventBus.publish(
           new CourtUpdatedEvent(
             externalEvent.clubId,
@@ -80,7 +96,19 @@ export class EventsController {
             externalEvent.fields,
           ),
         );
-        break;
+      } else {
+        // Manejar eventos desconocidos con un error más claro
+        this.logger.warn(
+          `Unknown event type received: ${JSON.stringify(externalEvent.type)}`,
+        );
+        throw new BadRequestException(
+          `Unsupported event type: ${JSON.stringify(externalEvent.type)}`,
+        );
+      }
+    } catch (error) {
+      const err = error as Error; // Asegurar que el error sea del tipo correcto
+      this.logger.error(`Error processing event: ${err.message}`, err.stack);
+      throw err; // Re-lanzar el error si es necesario
     }
   }
 }

@@ -1,3 +1,6 @@
+import { config } from 'dotenv'; // Importa dotenv para manejar variables de entorno
+config(); // Carga las variables desde el archivo .env
+
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,

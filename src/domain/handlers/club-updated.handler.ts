@@ -7,7 +7,8 @@ import { ClubUpdatedEvent } from '../events/club-updated.event';
 export class ClubUpdatedHandler implements IEventHandler<ClubUpdatedEvent> {
   constructor(private readonly logger: Logger) {}
 
-  handle(event: ClubUpdatedEvent) {
-    this.logger.log(`Club ${event.clubId} updated`);
+  handle(event: ClubUpdatedEvent): void {
+    const logMessage = `Club ${event.clubId} updated`;
+    this.logger.log(logMessage);
   }
 }

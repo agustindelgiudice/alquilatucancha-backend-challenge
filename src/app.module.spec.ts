@@ -86,6 +86,12 @@ describe('AppModule', () => {
   });
 
   afterAll(async () => {
+    // Cerrar el mock de Redis (si aplica)
+    if (redisClientMock.quit) {
+      await redisClientMock.quit();
+    }
+  
+    // Cerrar el módulo de pruebas
     await app.close();
   });
 

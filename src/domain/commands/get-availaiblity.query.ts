@@ -20,7 +20,11 @@ export const validateQueryInput = (input: { placeId: string; date: string }) => 
 };
 // Clase para representar el query
 export class GetAvailabilityQuery {
-  constructor(readonly placeId: string, readonly date: Date) {}
+  constructor(public readonly placeId: string, public readonly date: Date) {
+    if (!(date instanceof Date)) {
+      throw new Error('Invalid date provided to GetAvailabilityQuery.');
+    }
+  }
 }
 
 // Interfaz para la estructura extendida de Club con disponibilidad

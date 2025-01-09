@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { INestApplication } from '@nestjs/common';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 
 import { AppModule } from './../src/app.module';
 

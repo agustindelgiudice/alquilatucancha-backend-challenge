@@ -1,37 +1,82 @@
-import moment from 'moment';
-
-import { AlquilaTuCanchaClient } from '../../domain/ports/aquila-tu-cancha.client';
-import { GetAvailabilityQuery } from '../commands/get-availaiblity.query';
-import { Club } from '../model/club';
-import { Court } from '../model/court';
-import { Slot } from '../model/slot';
+import { RedisService } from '../../infrastructure/services/redis.service';
 import { GetAvailabilityHandler } from './get-availability.handler';
+import { GetAvailabilityQuery } from '../commands/get-availaiblity.query';
+import { AlquilaTuCanchaClient } from '../ports/aquila-tu-cancha.client';
+import moment from 'moment';
 
 describe('GetAvailabilityHandler', () => {
   let handler: GetAvailabilityHandler;
-  let client: FakeAlquilaTuCanchaClient;
+  let mockClient: jest.Mocked<AlquilaTuCanchaClient>;
+  let mockRedisService: jest.Mocked<RedisService>;
 
-  beforeEach(() => {
-    client = new FakeAlquilaTuCanchaClient();
-    handler = new GetAvailabilityHandler(client);
+  beforeAll(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {}); // Silencia console.error
   });
 
-  it('returns the availability', async () => {
-    client.clubs = {
-      '123': [
-        { id: 1, name: 'Club A', location: 'Location A' },
-      ],
-    };
-    client.courts = {
-      '1': [
-        { id: 1, name: 'Court A', type: 'Football' },
-      ],
-    };
-    client.slots = {
-      '1_1_2022-12-05': [],
-    };
+  afterAll(() => {
+    jest.restoreAllMocks(); // Restaura los mocks
+  });
+
+  beforeEach(() => {
+    mockClient = {
+      getClubs: jest.fn(),
+      getCourts: jest.fn(),
+      getAvailableSlots: jest.fn(),
+    } as jest.Mocked<AlquilaTuCanchaClient>;
+
+    mockRedisService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(), // Agregado para cumplir con la interfaz RedisService
+    } as unknown as jest.Mocked<RedisService>;
+
+    handler = new GetAvailabilityHandler(mockClient, mockRedisService);
+  });
+
+  it('handles errors when fetching clubs', async () => {
+    mockClient.getClubs.mockRejectedValueOnce(new Error('API Error'));
+
     const placeId = '123';
-    const date = moment('2022-12-05').toDate();
+    const date = new Date();
+
+    await expect(
+      handler.execute(new GetAvailabilityQuery(placeId, date))
+    ).rejects.toThrow('Failed to fetch availability data');
+
+    expect(mockRedisService.get).toHaveBeenCalledWith(`availability:${placeId}:${date}`);
+    expect(mockRedisService.set).not.toHaveBeenCalled();
+  });
+
+  it('returns data from Redis cache if available', async () => {
+    const cachedData = JSON.stringify([
+      { id: 1, name: 'Club A', courts: [] },
+    ]);
+    mockRedisService.get.mockResolvedValueOnce(cachedData);
+
+    const placeId = '123';
+    const date = moment().add(1, 'days').toDate();
+
+    const response = await handler.execute(
+      new GetAvailabilityQuery(placeId, date),
+    );
+
+    expect(response).toEqual(JSON.parse(cachedData));
+    expect(mockRedisService.get).toHaveBeenCalledTimes(1);
+    expect(mockClient.getClubs).not.toHaveBeenCalled();
+  });
+
+  it('fetches data from API and sets it in Redis if cache is unavailable', async () => {
+    mockRedisService.get.mockResolvedValueOnce(null);
+    mockClient.getClubs.mockResolvedValueOnce([
+      { id: 1, name: 'Club A', location: 'Location A' },
+    ]);
+    mockClient.getCourts.mockResolvedValueOnce([
+      { id: 1, name: 'Court A', type: 'Grass' },
+    ]);
+    mockClient.getAvailableSlots.mockResolvedValueOnce([]);
+
+    const placeId = '123';
+    const date = moment().add(1, 'days').toDate();
 
     const response = await handler.execute(
       new GetAvailabilityQuery(placeId, date),
@@ -42,29 +87,10 @@ describe('GetAvailabilityHandler', () => {
         id: 1,
         name: 'Club A',
         location: 'Location A',
-        courts: [{ id: 1, name: 'Court A', type: 'Football', available: [] }],
+        courts: [{ id: 1, name: 'Court A', type: 'Grass', available: [] }],
       },
     ]);
+    expect(mockRedisService.get).toHaveBeenCalledTimes(1);
+    expect(mockRedisService.set).toHaveBeenCalledTimes(1);
   });
 });
-
-class FakeAlquilaTuCanchaClient implements AlquilaTuCanchaClient {
-  clubs: Record<string, Club[]> = {};
-  courts: Record<string, Court[]> = {};
-  slots: Record<string, Slot[]> = {};
-  async getClubs(placeId: string): Promise<Club[]> {
-    return this.clubs[placeId];
-  }
-  async getCourts(clubId: number): Promise<Court[]> {
-    return this.courts[String(clubId)];
-  }
-  async getAvailableSlots(
-    clubId: number,
-    courtId: number,
-    date: Date,
-  ): Promise<Slot[]> {
-    return this.slots[
-      `${clubId}_${courtId}_${moment(date).format('YYYY-MM-DD')}`
-    ];
-  }
-}

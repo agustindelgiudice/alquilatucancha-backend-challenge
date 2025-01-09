@@ -9,6 +9,14 @@ describe('SearchController', () => {
   let mockQueryBus: jest.Mocked<QueryBus>;
   let mockRedisClient: jest.Mocked<Redis>;
 
+  beforeAll(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(async () => {
     mockQueryBus = {
       execute: jest.fn(),
